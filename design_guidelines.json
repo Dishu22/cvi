@@ -1,0 +1,129 @@
+{
+  "theme_strategy": {
+    "default": "dark",
+    "rationale": "CodeVerse Institute aims to attract students interested in tech and coding. A dark mode default with terminal-inspired aesthetics instantly resonates with developers, while high-contrast neon accents convey a modern, silicon-valley energy. A light mode toggle should be provided for accessibility.",
+    "archetype": "Electric & Neon meets Swiss High-Contrast"
+  },
+  "colors": {
+    "background": {
+      "dark": "#09090B",
+      "light": "#FAFAFA",
+      "surface_dark": "#18181B",
+      "surface_light": "#FFFFFF"
+    },
+    "primary": {
+      "value": "#CCFF00",
+      "name": "Volt Green",
+      "usage": "Primary CTAs, active states, and high-priority highlights. Use sparingly to maintain impact."
+    },
+    "secondary": {
+      "value": "#FF6B00",
+      "name": "Electric Orange",
+      "usage": "Secondary actions, warning states, and contrasting visual accents in bento grids."
+    },
+    "text": {
+      "dark_theme": {
+        "primary": "#FFFFFF",
+        "secondary": "#A1A1AA",
+        "muted": "#71717A"
+      },
+      "light_theme": {
+        "primary": "#09090B",
+        "secondary": "#52525B",
+        "muted": "#A1A1AA"
+      }
+    },
+    "borders": {
+      "dark": "rgba(255, 255, 255, 0.1)",
+      "light": "rgba(0, 0, 0, 0.1)"
+    }
+  },
+  "typography": {
+    "headings": {
+      "family": "Outfit",
+      "weights": ["300", "500", "700"],
+      "classes": "font-outfit tracking-tight",
+      "usage": "All major page titles, section headings, and large statistic numbers. Never center by default."
+    },
+    "body": {
+      "family": "IBM Plex Sans",
+      "weights": ["400", "500"],
+      "classes": "font-sans leading-relaxed text-lg",
+      "usage": "Paragraphs, descriptions, and long-form text."
+    },
+    "mono": {
+      "family": "JetBrains Mono",
+      "weights": ["400"],
+      "classes": "font-mono tracking-[0.2em] uppercase text-xs",
+      "usage": "Overlines, labels, technical metadata (tags, repository links), and small UI text."
+    }
+  },
+  "spacing_and_layout": {
+    "philosophy": "Generous Spacing. Avoid cramped containers. Use p-8 or p-12 for cards.",
+    "grids": {
+      "landing_page": "Mode A: Tetris Grid. Asymmetrical layouts with col-span-8 for hero elements and col-span-4 for supporting blocks. Leave empty cells for breathing room.",
+      "dashboard": "Mode B: High Density Grid. grid-cols-1 md:grid-cols-4. Use col-span-3 for main data, col-span-1 for summaries. Every pixel utilized."
+    },
+    "containers": "All containers with borders MUST have internal padding (p-6 or p-8) to prevent text collision. Mobile images must use max-h-[80vh] md:max-h-none."
+  },
+  "surface_strategies": {
+    "navigation": "Crystal Glassmorphism. bg-black/60 (dark), backdrop-blur-xl, border-b border-white/10. Must have 1px delicate inner stroke.",
+    "cards": "Grid Borders for technical look. Flat background, 1px subtle border, no heavy box-shadows. On hover: slight lift (-translate-y-1) and Volt Green border glow.",
+    "inputs": "Neumorphic tactile variant mixed with sharp edges. High contrast text."
+  },
+  "motion": {
+    "scrolling": "Lenis smooth scrolling is MANDATORY for marketing pages to add weight and premium feel.",
+    "interactions": "All interactive elements must have hover states (e.g., hover:text-white hover:bg-zinc-800).",
+    "page_transitions": "Use framer-motion for staggered entrance of grid items. Do not use generic 'transition: all'."
+  },
+  "components": {
+    "custom": [
+      "HeroSection (Raw HTML/Tailwind, complex overlap, no Shadcn wrappers)",
+      "BentoGallery (Asymmetric grid for student projects/institute photos)"
+    ],
+    "shadcn": [
+      "Button (Pill-shaped or sharp, customized with Volt Green)",
+      "Input, Textarea, Form (For Inquiry and Project Upload)",
+      "Table (For Student Dashboard project management)",
+      "Dialog (For quick views or confirmations)"
+    ],
+    "toast": "Use 'sonner' for all notifications (success, error, auth).",
+    "icons": "Use 'lucide-react' for crisp, scalable vectors."
+  },
+  "pages_and_features": {
+    "landing_page": {
+      "hero": "Bold typography ('Launch Your Tech Career'), abstract background, dual CTAs (Explore Courses, Student Login).",
+      "stats": "Large mono numbers, asymmetrical grid.",
+      "courses": "Cards with overlapping images, hover to reveal curriculum details.",
+      "gallery": "Masonry or Bento grid of institute and student images."
+    },
+    "student_portal": {
+      "dashboard": "High-density grid. Metrics: Total Projects, Profile Views. List of uploaded projects.",
+      "upload_form": "Clean, multi-step or well-sectioned form. Fields: Title, Desc, Images, Demo Link, GitHub Link, Tech Stack tags.",
+      "auth": "Google OAuth button prominent. Managed via Emergent auth context."
+    },
+    "public_profiles": {
+      "student_profile": "URL: /student/{studentname}. Minimalist header with student info. Grid of their projects. SEO meta tags are critical here.",
+      "project_detail": "URL: /student/project/{projectname}. Full-width hero image of project, split layout for description and technical details (GitHub/Live links)."
+    }
+  },
+  "images": {
+    "hero_abstract": "https://images.unsplash.com/photo-1761599821310-da0d6356b4f3?crop=entropy&cs=srgb&fm=jpg",
+    "students_coding_1": "https://images.pexels.com/photos/4078343/pexels-photo-4078343.jpeg",
+    "students_coding_2": "https://images.pexels.com/photos/4385446/pexels-photo-4385446.jpeg",
+    "computer_lab": "https://images.pexels.com/photos/3747480/pexels-photo-3747480.jpeg",
+    "tech_education_logo": "https://images.unsplash.com/photo-1762330917056-e69b34329ddf?crop=entropy&cs=srgb&fm=jpg"
+  },
+  "testing": {
+    "requirements": "All interactive and key informational elements MUST include a 'data-testid' attribute (e.g., data-testid='login-google-button', data-testid='upload-project-submit')."
+  },
+  "universal_guidelines_for_main_agent": [
+    "Do not center align the app container (.App { text-align: center; } is banned).",
+    "Use Named exports for components and Default exports for pages.",
+    "Never use generic AI emojis for icons. Use lucide-react.",
+    "Implement Google OAuth using standard patterns suitable for the Emergent-managed environment.",
+    "Ensure SEO by dynamically setting document.title and meta tags for the Student Profile and Project Detail pages.",
+    "Do NOT use complete transparent backgrounds in sticky headers or dropdowns. Always use a backdrop-blur or solid color.",
+    "Apply specific transitions (e.g., transition-colors, transition-transform) rather than 'all'."
+  ]
+}
