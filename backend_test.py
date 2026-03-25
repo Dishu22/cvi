@@ -85,7 +85,7 @@ class CodeVerseAPITester:
             "Submit Inquiry Form",
             "POST",
             "inquiry",
-            200,
+            201,
             data=inquiry_data
         )
         

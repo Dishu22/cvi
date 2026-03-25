@@ -57,7 +57,7 @@ export default function ProjectDetail() {
   return (
     <div className="min-h-screen bg-background">
       <Helmet>
-        <title>{project.title} - CodeVerse Institute</title>
+        <title>{`${project.title} - CodeVerse Institute`}</title>
         <meta name="description" content={project.description.substring(0, 155)} />
         <meta property="og:title" content={project.title} />
         <meta property="og:description" content={project.description.substring(0, 155)} />

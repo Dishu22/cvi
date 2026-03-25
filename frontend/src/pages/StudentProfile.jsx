@@ -59,7 +59,7 @@ export default function StudentProfile() {
   return (
     <div className="min-h-screen bg-background">
       <Helmet>
-        <title>{student.name} - CodeVerse Institute Student Portfolio</title>
+        <title>{`${student.name} - CodeVerse Institute Student Portfolio`}</title>
         <meta name="description" content={`Portfolio of ${student.name}, a student at CodeVerse Institute. View ${projects.length} projects and work.`} />
         <meta property="og:title" content={`${student.name} - Student Portfolio`} />
         <meta property="og:description" content={`View ${student.name}'s projects and work at CodeVerse Institute`} />

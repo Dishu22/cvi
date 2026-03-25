@@ -238,7 +238,7 @@ async def get_all_projects(limit: int = 50):
     
     return projects
 
-@api_router.post("/projects", response_model=Project)
+@api_router.post("/projects", response_model=Project, status_code=201)
 async def create_project(project_data: ProjectCreate, request: Request, session_token: Optional[str] = Cookie(None)):
     """Create new project (protected)"""
     user = await get_current_user(request, session_token)
@@ -421,7 +421,7 @@ async def get_my_projects(request: Request, session_token: Optional[str] = Cooki
     
     return projects
 
-@api_router.post("/inquiry", response_model=Inquiry)
+@api_router.post("/inquiry", response_model=Inquiry, status_code=201)
 async def submit_inquiry(inquiry_data: InquiryCreate):
     """Submit inquiry form (public)"""
     inquiry_id = f"inq_{uuid.uuid4().hex[:12]}"
