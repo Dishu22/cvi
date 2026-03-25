@@ -18,8 +18,12 @@ export const Navigation = ({ user }) => {
           </Link>
 
           <div className="flex items-center gap-6">
-            <Link to="/" className="text-text-secondary hover:text-white transition-colors">
+            <Link to="/" className="text-text-secondary hover:text-white transition-colors\">
               <Home className="w-5 h-5" />
+            </Link>
+            
+            <Link to="/notes" className="text-text-secondary hover:text-white transition-colors text-sm font-medium\">
+              Notes
             </Link>
             
             {user ? (
@@ -46,11 +50,11 @@ export const Navigation = ({ user }) => {
             ) : (
               <Button
                 data-testid="login-button"
-                onClick={() => navigate('/login')}
+                onClick={() => navigate('/register')}
                 className="bg-primary text-background hover:bg-primary/90 font-medium"
               >
                 <User className="w-4 h-4 mr-2" />
-                Student Login
+                Student Register
               </Button>
             )}
           </div>

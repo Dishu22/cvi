@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigation } from '@/components/Navigation';
 import { Footer } from '@/components/Footer';
+import { SocialFloating } from '@/components/SocialFloating';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,15 +14,6 @@ import { toast } from 'sonner';
 import Lenis from '@studio-freight/lenis';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-
-const courses = [
-  { id: 1, title: 'Web Development Bootcamp', category: 'Technology', duration: '6 Months', price: '₹15,000', rating: 4.8, students: 248, image: 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=600' },
-  { id: 2, title: 'Data Science & Machine Learning', category: 'Technology', duration: '8 Months', price: '₹18,000', rating: 4.9, students: 186, image: 'https://images.unsplash.com/photo-1527474305487-b87b222841cc?w=600' },
-  { id: 3, title: 'Digital Marketing Mastery', category: 'Marketing', duration: '4 Months', price: '₹12,000', rating: 4.7, students: 312, image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600' },
-  { id: 4, title: 'UI/UX Design Professional', category: 'Design', duration: '5 Months', price: '₹14,000', rating: 4.8, students: 197, image: 'https://images.unsplash.com/photo-1541462608143-67571c6738dd?w=600' },
-  { id: 5, title: 'Cloud Computing & DevOps', category: 'Technology', duration: '6 Months', price: '₹20,000', rating: 4.9, students: 143, image: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600' },
-  { id: 6, title: 'Financial Accounting & Tally', category: 'Finance', duration: '3 Months', price: '₹8,000', rating: 4.6, students: 425, image: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=600' },
-];
 
 const galleryImages = [
   { url: 'https://images.pexels.com/photos/4078343/pexels-photo-4078343.jpeg', label: 'Students Coding' },
@@ -41,6 +33,7 @@ const testimonials = [
 export default function Landing() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
+  const [courses, setCourses] = useState([]);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -81,7 +74,21 @@ export default function Landing() {
         console.log('Not authenticated');
       }
     };
+    
+    const fetchCourses = async () => {
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/courses`);
+        if (response.ok) {
+          const coursesData = await response.json();
+          setCourses(coursesData);
+        }
+      } catch (error) {
+        console.error('Failed to load courses');
+      }
+    };
+    
     checkAuth();
+    fetchCourses();
   }, []);
 
   const handleSubmit = async (e) => {
@@ -144,11 +151,11 @@ export default function Landing() {
             </Button>
             <Button
               data-testid="student-login-hero-button"
-              onClick={() => navigate('/login')}
+              onClick={() => navigate('/register')}
               variant="outline"
               className="border-white/20 text-white hover:bg-white/10 px-8 py-6 text-base"
             >
-              Student Login
+              Student Register
             </Button>
           </div>
 
@@ -221,8 +228,8 @@ export default function Landing() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {courses.map((course) => (
               <Card 
-                key={course.id}
-                data-testid={`course-card-${course.id}`}
+                key={course.course_id}
+                data-testid={`course-card-${course.course_id}`}
                 className="group bg-background border border-white/10 overflow-hidden hover:-translate-y-1 transition-all duration-300 hover:border-primary/50"
               >
                 <div className="relative overflow-hidden aspect-video">
@@ -426,6 +433,7 @@ export default function Landing() {
       </section>
 
       <Footer />
+      <SocialFloating />
     </div>
   );
 }

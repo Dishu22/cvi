@@ -5,12 +5,16 @@ import { Toaster } from "@/components/ui/sonner";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
+import StudentRegister from "@/pages/StudentRegister";
 import AuthCallback from "@/pages/AuthCallback";
 import Dashboard from "@/pages/Dashboard";
 import UploadProject from "@/pages/UploadProject";
 import EditProject from "@/pages/EditProject";
 import StudentProfile from "@/pages/StudentProfile";
 import ProjectDetail from "@/pages/ProjectDetail";
+import Notes from "@/pages/Notes";
+import AdminLogin from "@/pages/AdminLogin";
+import AdminDashboard from "@/pages/AdminDashboard";
 
 function AppRouter() {
   const location = useLocation();
@@ -22,7 +26,11 @@ function AppRouter() {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
+      <Route path="/register" element={<StudentRegister />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/notes" element={<Notes />} />
+      <Route path="/admin/login" element={<AdminLogin />} />
+      <Route path="/admin/dashboard" element={<AdminDashboard />} />
       
       <Route 
         path="/dashboard" 

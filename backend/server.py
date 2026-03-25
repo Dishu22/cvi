@@ -1,5 +1,6 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Cookie, Response, Request
+from fastapi import FastAPI, APIRouter, HTTPException, Cookie, Response, Request, Depends
 from fastapi.responses import JSONResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -11,6 +12,7 @@ from typing import List, Optional
 import uuid
 from datetime import datetime, timezone, timedelta
 import httpx
+import secrets
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -92,6 +94,92 @@ class DashboardStats(BaseModel):
     total_projects: int
     total_views: int
 
+class StudentRegistration(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    registration_id: str
+    name: str
+    email: str
+    phone: str
+    course_interest: str
+    message: Optional[str] = None
+    status: str = "pending"
+    created_at: datetime
+
+class StudentRegistrationCreate(BaseModel):
+    name: str
+    email: str
+    phone: str
+    course_interest: str
+    message: Optional[str] = None
+
+class Course(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    course_id: str
+    title: str
+    category: str
+    duration: str
+    price: str
+    rating: float
+    students: int
+    image: str
+    description: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+class CourseCreate(BaseModel):
+    title: str
+    category: str
+    duration: str
+    price: str
+    rating: float = 4.5
+    students: int = 0
+    image: str
+    description: Optional[str] = None
+
+class CourseUpdate(BaseModel):
+    title: Optional[str] = None
+    category: Optional[str] = None
+    duration: Optional[str] = None
+    price: Optional[str] = None
+    rating: Optional[float] = None
+    students: Optional[int] = None
+    image: Optional[str] = None
+    description: Optional[str] = None
+
+class Note(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    note_id: str
+    title: str
+    subject: str
+    description: Optional[str] = None
+    file_url: str
+    file_type: str
+    created_at: datetime
+    updated_at: datetime
+
+class NoteCreate(BaseModel):
+    title: str
+    subject: str
+    description: Optional[str] = None
+    file_url: str
+    file_type: str = "pdf"
+
+class NoteUpdate(BaseModel):
+    title: Optional[str] = None
+    subject: Optional[str] = None
+    description: Optional[str] = None
+    file_url: Optional[str] = None
+    file_type: Optional[str] = None
+
+class AdminLogin(BaseModel):
+    username: str
+    password: str
+
+class AdminSession(BaseModel):
+    admin_token: str
+    expires_at: datetime
+
+
 def create_slug(title: str) -> str:
     """Create URL-friendly slug from title"""
     slug = title.lower().replace(' ', '-')
@@ -139,6 +227,45 @@ async def get_current_user(request: Request, session_token: Optional[str] = Cook
     
     return User(**user_doc)
 
+ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'cvi@admin123')
+
+async def get_admin(request: Request, admin_token: Optional[str] = Cookie(None)):
+    """Verify admin authentication"""
+    if not admin_token:
+        auth_header = request.headers.get('Authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            admin_token = auth_header.replace('Bearer ', '')
+    
+    if not admin_token:
+        raise HTTPException(status_code=401, detail="Admin not authenticated")
+    
+    admin_session = await db.admin_sessions.find_one(
+        {"admin_token": admin_token},
+        {"_id": 0}
+    )
+    
+    if not admin_session:
+        raise HTTPException(status_code=401, detail="Invalid admin session")
+    
+    expires_at = admin_session["expires_at"]
+    if isinstance(expires_at, str):
+        expires_at = datetime.fromisoformat(expires_at)
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    
+    if expires_at < datetime.now(timezone.utc):
+        await db.admin_sessions.delete_one({"admin_token": admin_token})
+        raise HTTPException(status_code=401, detail="Admin session expired")
+    
+    return True
+
+async def check_student_approved(user_id: str) -> bool:
+    """Check if student is approved"""
+    approved = await db.approved_students.find_one({"user_id": user_id}, {"_id": 0})
+    return approved is not None
+
+
 @api_router.post("/auth/session")
 async def create_session(request: SessionRequest, response: Response):
     """Exchange session_id for session_token"""
@@ -166,20 +293,21 @@ async def create_session(request: SessionRequest, response: Response):
             
             if existing_user:
                 user_id = existing_user["user_id"]
+                is_approved = await check_student_approved(user_id)
+                if not is_approved:
+                    raise HTTPException(
+                        status_code=403, 
+                        detail="Your account is pending approval from CVI admin. Please contact the institute."
+                    )
                 await db.users.update_one(
                     {"user_id": user_id},
                     {"$set": {"name": name, "picture": picture}}
                 )
             else:
-                user_id = f"user_{uuid.uuid4().hex[:12]}"
-                user_doc = {
-                    "user_id": user_id,
-                    "email": email,
-                    "name": name,
-                    "picture": picture,
-                    "created_at": datetime.now(timezone.utc).isoformat()
-                }
-                await db.users.insert_one(user_doc)
+                raise HTTPException(
+                    status_code=403,
+                    detail="No account found. Please register first and wait for admin approval."
+                )
             
             await db.user_sessions.delete_many({"user_id": user_id})
             
@@ -442,6 +570,314 @@ async def submit_inquiry(inquiry_data: InquiryCreate):
     inquiry_doc['created_at'] = now
     
     return Inquiry(**inquiry_doc)
+
+
+
+@api_router.post("/student/register", status_code=201)
+async def register_student(registration_data: StudentRegistrationCreate):
+    """Student registration request (public)"""
+    existing = await db.student_registrations.find_one({"email": registration_data.email}, {"_id": 0})
+    if existing:
+        if existing["status"] == "pending":
+            raise HTTPException(status_code=400, detail="Registration already submitted. Waiting for admin approval.")
+        elif existing["status"] == "approved":
+            raise HTTPException(status_code=400, detail="Already registered. Please login.")
+    
+    registration_id = f"reg_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc)
+    
+    registration_doc = {
+        "registration_id": registration_id,
+        "name": registration_data.name,
+        "email": registration_data.email,
+        "phone": registration_data.phone,
+        "course_interest": registration_data.course_interest,
+        "message": registration_data.message,
+        "status": "pending",
+        "created_at": now.isoformat()
+    }
+    
+    await db.student_registrations.insert_one(registration_doc)
+    
+    return {"message": "Registration submitted successfully. You will be notified once approved by admin."}
+
+@api_router.post("/admin/login")
+async def admin_login(login_data: AdminLogin, response: Response):
+    """Admin login"""
+    if login_data.username != ADMIN_USERNAME or login_data.password != ADMIN_PASSWORD:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    admin_token = secrets.token_urlsafe(32)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+    
+    await db.admin_sessions.delete_many({})
+    
+    await db.admin_sessions.insert_one({
+        "admin_token": admin_token,
+        "expires_at": expires_at.isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    response.set_cookie(
+        key="admin_token",
+        value=admin_token,
+        httponly=True,
+        secure=True,
+        samesite="none",
+        max_age=7 * 24 * 60 * 60,
+        path="/"
+    )
+    
+    return {"message": "Admin logged in successfully", "admin_token": admin_token}
+
+@api_router.post("/admin/logout")
+async def admin_logout(response: Response, admin_token: Optional[str] = Cookie(None)):
+    """Admin logout"""
+    if admin_token:
+        await db.admin_sessions.delete_one({"admin_token": admin_token})
+    
+    response.delete_cookie("admin_token", path="/", samesite="none", secure=True)
+    return {"message": "Admin logged out successfully"}
+
+@api_router.get("/admin/pending-students")
+async def get_pending_students(request: Request, admin_token: Optional[str] = Cookie(None)):
+    """Get all pending student registrations (admin only)"""
+    await get_admin(request, admin_token)
+    
+    registrations = await db.student_registrations.find(
+        {"status": "pending"},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(length=1000)
+    
+    for reg in registrations:
+        if isinstance(reg.get('created_at'), str):
+            reg['created_at'] = datetime.fromisoformat(reg['created_at'])
+    
+    return registrations
+
+@api_router.post("/admin/approve-student/{registration_id}")
+async def approve_student(registration_id: str, request: Request, admin_token: Optional[str] = Cookie(None)):
+    """Approve student registration (admin only)"""
+    await get_admin(request, admin_token)
+    
+    registration = await db.student_registrations.find_one(
+        {"registration_id": registration_id},
+        {"_id": 0}
+    )
+    
+    if not registration:
+        raise HTTPException(status_code=404, detail="Registration not found")
+    
+    if registration["status"] != "pending":
+        raise HTTPException(status_code=400, detail="Registration already processed")
+    
+    user_id = f"user_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc)
+    
+    user_doc = {
+        "user_id": user_id,
+        "email": registration["email"],
+        "name": registration["name"],
+        "picture": None,
+        "created_at": now.isoformat()
+    }
+    await db.users.insert_one(user_doc)
+    
+    await db.approved_students.insert_one({
+        "user_id": user_id,
+        "email": registration["email"],
+        "approved_at": now.isoformat()
+    })
+    
+    await db.student_registrations.update_one(
+        {"registration_id": registration_id},
+        {"$set": {"status": "approved", "user_id": user_id}}
+    )
+    
+    return {"message": "Student approved successfully", "user_id": user_id}
+
+@api_router.delete("/admin/reject-student/{registration_id}")
+async def reject_student(registration_id: str, request: Request, admin_token: Optional[str] = Cookie(None)):
+    """Reject student registration (admin only)"""
+    await get_admin(request, admin_token)
+    
+    result = await db.student_registrations.update_one(
+        {"registration_id": registration_id},
+        {"$set": {"status": "rejected"}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Registration not found")
+    
+    return {"message": "Student registration rejected"}
+
+@api_router.get("/courses")
+async def get_courses():
+    """Get all courses (public)"""
+    courses = await db.courses.find({}, {"_id": 0}).sort("created_at", -1).to_list(length=1000)
+    
+    for course in courses:
+        if isinstance(course.get('created_at'), str):
+            course['created_at'] = datetime.fromisoformat(course['created_at'])
+        if isinstance(course.get('updated_at'), str):
+            course['updated_at'] = datetime.fromisoformat(course['updated_at'])
+    
+    return courses
+
+@api_router.post("/admin/courses", response_model=Course, status_code=201)
+async def create_course(course_data: CourseCreate, request: Request, admin_token: Optional[str] = Cookie(None)):
+    """Create course (admin only)"""
+    await get_admin(request, admin_token)
+    
+    course_id = f"course_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc)
+    
+    course_doc = {
+        "course_id": course_id,
+        "title": course_data.title,
+        "category": course_data.category,
+        "duration": course_data.duration,
+        "price": course_data.price,
+        "rating": course_data.rating,
+        "students": course_data.students,
+        "image": course_data.image,
+        "description": course_data.description,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.courses.insert_one(course_doc)
+    
+    course_doc['created_at'] = now
+    course_doc['updated_at'] = now
+    
+    return Course(**course_doc)
+
+@api_router.put("/admin/courses/{course_id}", response_model=Course)
+async def update_course(course_id: str, course_data: CourseUpdate, request: Request, admin_token: Optional[str] = Cookie(None)):
+    """Update course (admin only)"""
+    await get_admin(request, admin_token)
+    
+    update_data = {k: v for k, v in course_data.model_dump().items() if v is not None}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.courses.update_one(
+        {"course_id": course_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Course not found")
+    
+    updated_course = await db.courses.find_one({"course_id": course_id}, {"_id": 0})
+    
+    if isinstance(updated_course.get('created_at'), str):
+        updated_course['created_at'] = datetime.fromisoformat(updated_course['created_at'])
+    if isinstance(updated_course.get('updated_at'), str):
+        updated_course['updated_at'] = datetime.fromisoformat(updated_course['updated_at'])
+    
+    return Course(**updated_course)
+
+@api_router.delete("/admin/courses/{course_id}")
+async def delete_course(course_id: str, request: Request, admin_token: Optional[str] = Cookie(None)):
+    """Delete course (admin only)"""
+    await get_admin(request, admin_token)
+    
+    result = await db.courses.delete_one({"course_id": course_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Course not found")
+    
+    return {"message": "Course deleted successfully"}
+
+@api_router.get("/notes")
+async def get_notes():
+    """Get all notes (public)"""
+    notes = await db.notes.find({}, {"_id": 0}).sort("created_at", -1).to_list(length=1000)
+    
+    for note in notes:
+        if isinstance(note.get('created_at'), str):
+            note['created_at'] = datetime.fromisoformat(note['created_at'])
+        if isinstance(note.get('updated_at'), str):
+            note['updated_at'] = datetime.fromisoformat(note['updated_at'])
+    
+    return notes
+
+@api_router.post("/admin/notes", response_model=Note, status_code=201)
+async def create_note(note_data: NoteCreate, request: Request, admin_token: Optional[str] = Cookie(None)):
+    """Create note (admin only)"""
+    await get_admin(request, admin_token)
+    
+    note_id = f"note_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc)
+    
+    note_doc = {
+        "note_id": note_id,
+        "title": note_data.title,
+        "subject": note_data.subject,
+        "description": note_data.description,
+        "file_url": note_data.file_url,
+        "file_type": note_data.file_type,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    
+    await db.notes.insert_one(note_doc)
+    
+    note_doc['created_at'] = now
+    note_doc['updated_at'] = now
+    
+    return Note(**note_doc)
+
+@api_router.put("/admin/notes/{note_id}", response_model=Note)
+async def update_note(note_id: str, note_data: NoteUpdate, request: Request, admin_token: Optional[str] = Cookie(None)):
+    """Update note (admin only)"""
+    await get_admin(request, admin_token)
+    
+    update_data = {k: v for k, v in note_data.model_dump().items() if v is not None}
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.notes.update_one(
+        {"note_id": note_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Note not found")
+    
+    updated_note = await db.notes.find_one({"note_id": note_id}, {"_id": 0})
+    
+    if isinstance(updated_note.get('created_at'), str):
+        updated_note['created_at'] = datetime.fromisoformat(updated_note['created_at'])
+    if isinstance(updated_note.get('updated_at'), str):
+        updated_note['updated_at'] = datetime.fromisoformat(updated_note['updated_at'])
+    
+    return Note(**updated_note)
+
+@api_router.delete("/admin/notes/{note_id}")
+async def delete_note(note_id: str, request: Request, admin_token: Optional[str] = Cookie(None)):
+    """Delete note (admin only)"""
+    await get_admin(request, admin_token)
+    
+    result = await db.notes.delete_one({"note_id": note_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Note not found")
+    
+    return {"message": "Note deleted successfully"}
+
+@api_router.get("/admin/inquiries")
+async def get_inquiries(request: Request, admin_token: Optional[str] = Cookie(None)):
+    """Get all inquiries (admin only)"""
+    await get_admin(request, admin_token)
+    
+    inquiries = await db.inquiries.find({}, {"_id": 0}).sort("created_at", -1).to_list(length=1000)
+    
+    for inquiry in inquiries:
+        if isinstance(inquiry.get('created_at'), str):
+            inquiry['created_at'] = datetime.fromisoformat(inquiry['created_at'])
+    
+    return inquiries
 
 app.include_router(api_router)
 
