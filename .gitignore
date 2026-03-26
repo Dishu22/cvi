@@ -29,3 +29,7 @@ test_reports/
 # Cache
 .ruff_cache/
 .pytest_cache/
+-e 
+# Environment files
+*.env
+*.env.*
